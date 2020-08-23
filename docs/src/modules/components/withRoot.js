@@ -4,6 +4,10 @@ import find from 'lodash/find';
 import { withRouter } from 'next/router';
 import AppWrapper from 'docs/src/modules/components/AppWrapper';
 
+const PagesContext = React.createContext({});
+
+export const PagesConsumer = PagesContext.Consumer;
+
 const pages = [
   {
     pathname: '/getting-started',
@@ -47,33 +51,33 @@ const pages = [
   },
 ];
 
-function findActivePage(currentPages, router) {
-  const activePage = find(currentPages, page => {
-    if (page.children) {
-      return router.pathname.indexOf(`${page.pathname}/`) === 0;
-    }
-
-    // Should be an exact match if no children
-    return router.pathname === page.pathname;
-  });
-
-  if (!activePage) {
-    return null;
-  }
-
-  // We need to drill down
-  if (activePage.pathname !== router.pathname) {
-    return findActivePage(activePage.children, router);
-  }
-
-  return activePage;
-}
-
 function withRoot(Component) {
   class WithRoot extends React.Component {
-    getChildContext() {
-      const { router } = this.props;
+    findActivePage(currentPages, router) {
+      const activePage = find(currentPages, page => {
+        if (page.children) {
+          return router.pathname.indexOf(`${page.pathname}/`) === 0;
+        }
 
+        // Should be an exact match if no children
+        return router.pathname === page.pathname;
+      });
+
+      if (!activePage) {
+        return null;
+      }
+
+      // We need to drill down
+      if (activePage.pathname !== router.pathname) {
+        return this.findActivePage(activePage.children, router);
+      }
+
+      return activePage;
+    }
+
+    render() {
+      // const { pageContext, ...other } = this.props;
+      const { router, ...other } = this.props;
       let pathname = router.pathname;
       if (pathname !== '/') {
         // The leading / is only added to support static hosting (resolve /index.html).
@@ -81,19 +85,18 @@ function withRoot(Component) {
         pathname = pathname.replace(/\/$/, '');
       }
 
-      return {
-        pages,
-        activePage: findActivePage(pages, { ...router, pathname }),
-      };
-    }
-
-    render() {
-      const { pageContext, ...other } = this.props;
       return (
         <React.StrictMode>
-          <AppWrapper pageContext={pageContext}>
-            <Component initialProps={other} />
-          </AppWrapper>
+          <PagesContext.Provider
+            value={{
+              pages,
+              activePage: this.findActivePage(pages, { ...router, pathname }),
+            }}
+          >
+            <AppWrapper>
+              <Component initialProps={other} />
+            </AppWrapper>
+          </PagesContext.Provider>
         </React.StrictMode>
       );
     }
@@ -102,11 +105,6 @@ function withRoot(Component) {
   WithRoot.propTypes = {
     pageContext: PropTypes.object,
     router: PropTypes.object.isRequired,
-  };
-
-  WithRoot.childContextTypes = {
-    pages: PropTypes.array,
-    activePage: PropTypes.object,
   };
 
   return withRouter(WithRoot);

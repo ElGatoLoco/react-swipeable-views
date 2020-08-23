@@ -8,6 +8,10 @@ import {
   getDisplaySameSlide,
 } from 'react-swipeable-views-core';
 
+const SwipeableViewsContext = React.createContext({});
+
+export const SwipeableViewsConsumer = SwipeableViewsContext.Consumer;
+
 function addEventListener(node, event, handler, options) {
   node.addEventListener(event, handler, options);
   return {
@@ -247,16 +251,6 @@ class SwipeableViews extends React.Component {
       displaySameSlide: true,
     };
     this.setIndexCurrent(props.index);
-  }
-
-  getChildContext() {
-    return {
-      swipeableViews: {
-        slideUpdateHeight: () => {
-          this.updateHeight();
-        },
-      },
-    };
   }
 
   componentDidMount() {
@@ -783,56 +777,66 @@ So animateHeight is most likely having no effect at all.`,
     }
 
     return (
-      <div
-        ref={this.setRootNode}
-        style={Object.assign({}, axisProperties.root[axis], style)}
-        {...other}
-        {...touchEvents}
-        {...mouseEvents}
-        onScroll={this.handleScroll}
+      <SwipeableViewsContext.Provider
+        value={{
+          swipeableViews: {
+            slideUpdateHeight: () => {
+              this.updateHeight();
+            },
+          },
+        }}
       >
         <div
-          ref={this.setContainerNode}
-          style={Object.assign({}, containerStyle, styles.container, containerStyleProp)}
-          className="react-swipeable-view-container"
+          ref={this.setRootNode}
+          style={Object.assign({}, axisProperties.root[axis], style)}
+          {...other}
+          {...touchEvents}
+          {...mouseEvents}
+          onScroll={this.handleScroll}
         >
-          {React.Children.map(children, (child, indexChild) => {
-            if (renderOnlyActive && indexChild !== indexLatest) {
-              return null;
-            }
-
-            warning(
-              React.isValidElement(child),
-              `react-swipeable-view: one of the children provided is invalid: ${child}.
-We are expecting a valid React Element`,
-            );
-
-            let ref;
-            let hidden = true;
-
-            if (indexChild === indexLatest) {
-              hidden = false;
-
-              if (animateHeight) {
-                ref = this.setActiveSlide;
-                slideStyle.overflowY = 'hidden';
+          <div
+            ref={this.setContainerNode}
+            style={Object.assign({}, containerStyle, styles.container, containerStyleProp)}
+            className="react-swipeable-view-container"
+          >
+            {React.Children.map(children, (child, indexChild) => {
+              if (renderOnlyActive && indexChild !== indexLatest) {
+                return null;
               }
-            }
 
-            return (
-              <div
-                ref={ref}
-                style={slideStyle}
-                className={slideClassName}
-                aria-hidden={hidden}
-                data-swipeable="true"
-              >
-                {child}
-              </div>
-            );
-          })}
+              warning(
+                React.isValidElement(child),
+                `react-swipeable-view: one of the children provided is invalid: ${child}.
+We are expecting a valid React Element`,
+              );
+
+              let ref;
+              let hidden = true;
+
+              if (indexChild === indexLatest) {
+                hidden = false;
+
+                if (animateHeight) {
+                  ref = this.setActiveSlide;
+                  slideStyle.overflowY = 'hidden';
+                }
+              }
+
+              return (
+                <div
+                  ref={ref}
+                  style={slideStyle}
+                  className={slideClassName}
+                  aria-hidden={hidden}
+                  data-swipeable="true"
+                >
+                  {child}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </SwipeableViewsContext.Provider>
     );
   }
 }
@@ -1014,12 +1018,6 @@ SwipeableViews.defaultProps = {
     delay: '0s',
   },
   resistance: false,
-};
-
-SwipeableViews.childContextTypes = {
-  swipeableViews: PropTypes.shape({
-    slideUpdateHeight: PropTypes.func,
-  }),
 };
 
 export default SwipeableViews;
